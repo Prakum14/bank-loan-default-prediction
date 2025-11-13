@@ -1,0 +1,54 @@
+name: ML Pipeline CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      # Install required packages from requirements.txt
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Prepare Data Directory (MOCK)
+      # Since we cannot commit large data files to GitHub, 
+      # this step ensures the 'data/raw' structure exists and copies the small
+      # placeholder data (which should be committed) into it for the script to run.
+      run: |
+        mkdir -p data/raw
+        # Assuming you will commit small, lightweight versions of train.csv and test.csv 
+        # for CI testing purposes.
+        cp data/raw/train.csv data/raw/train.csv.ci_test 
+        cp data/raw/test.csv data/raw/test.csv.ci_test 
+        
+    - name: Run ML Pipeline
+      # Execute the main pipeline script from the root directory.
+      # This validates data loading, feature engineering, training, and artifact saving.
+      run: |
+        python src/pipeline.py
+        
+    - name: Verify Output Artifacts
+      # Check if the expected output files were created successfully
+      run: |
+        ls -lh output/
+        test -f output/loan_prediction_submission.csv
+        test -f output/model_artifacts.joblib
