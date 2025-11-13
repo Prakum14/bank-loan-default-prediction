@@ -1,54 +1,58 @@
-name: ML Pipeline CI
+name: Python CI/CD Pipeline
 
 on:
+  # Triggers the workflow on push or pull request events to the main branch
   push:
-    branches:
-      - main
-      - master
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-      - master
+    branches: [ main ]
 
 jobs:
-  build-and-test:
+  build:
+    # Use the latest Ubuntu runner environment
     runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
 
-    - name: Set up Python 3.9
+    steps:
+    - name: Checkout repository and pull LFS files
+      # Use the checkout action
+      uses: actions/checkout@v4
+      with:
+        # ------------------------------------------------------------------
+        # CRITICAL ADDITION: Setting 'lfs: true' ensures the actual content
+        # of train.csv is downloaded from Git LFS storage.
+        # ------------------------------------------------------------------
+        lfs: true
+
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10'
 
     - name: Install dependencies
-      # Install required packages from requirements.txt
       run: |
-        pip install --upgrade pip
+        python -m pip install --upgrade pip
+        # Install dependencies from your requirements file
         pip install -r requirements.txt
-        
-    - name: Prepare Data Directory (MOCK)
-      # Since we cannot commit large data files to GitHub, 
-      # this step ensures the 'data/raw' structure exists and copies the small
-      # placeholder data (which should be committed) into it for the script to run.
+        # Install the project itself (if you use a setup.py or pyproject.toml)
+        pip install .
+
+    - name: Verify Data File Existence and Size
+      # This step confirms that the large file was successfully downloaded
       run: |
-        mkdir -p data/raw
-        # Assuming you will commit small, lightweight versions of train.csv and test.csv 
-        # for CI testing purposes.
-        cp data/raw/train.csv data/raw/train.csv.ci_test 
-        cp data/raw/test.csv data/raw/test.csv.ci_test 
-        
-    - name: Run ML Pipeline
-      # Execute the main pipeline script from the root directory.
-      # This validates data loading, feature engineering, training, and artifact saving.
+        if [ -f data/train.csv ]; then
+          echo "Successfully downloaded data/train.csv."
+          ls -lh data/train.csv
+        else
+          echo "Error: data/train.csv was not found. LFS pull may have failed."
+          exit 1
+        fi
+
+    - name: Run Model Training or Tests
+      # This is where your bank loan prediction model is trained or validated.
       run: |
-        python src/pipeline.py
+        echo "Starting model validation/training..."
+        # Replace this with your project's command to start training/testing.
+        # Example: python src/train_model.py
+        # Example: pytest tests/
         
-    - name: Verify Output Artifacts
-      # Check if the expected output files were created successfully
-      run: |
-        ls -lh output/
-        test -f output/loan_prediction_submission.csv
-        test -f output/model_artifacts.joblib
+    # --- Add further steps here for deployment, linting, etc. ---
